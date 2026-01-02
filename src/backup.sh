@@ -5,33 +5,50 @@ set -o pipefail
 
 source ./env.sh
 
-echo "Creating backup of $POSTGRES_DATABASE database..."
-pg_dump --format=custom \
-        -h $POSTGRES_HOST \
-        -p $POSTGRES_PORT \
-        -U $POSTGRES_USER \
-        -d $POSTGRES_DATABASE \
-        $PGDUMP_EXTRA_OPTS \
-        > backup/db.dump
-
 timestamp=$(date +"%Y-%m-%dT%H:%M:%S")
 s3_uri_base="s3://${S3_BUCKET}/${S3_PREFIX}/${POSTGRES_DATABASE}_${timestamp}.dump"
 
-if [ -n "$PASSPHRASE" ]; then
-  echo "Encrypting backup..."
-  rm -f backup/db.dump.gpg
-  gpg --symmetric --batch --passphrase "$PASSPHRASE" backup/db.dump
-  rm backup/db.dump
-  local_file="backup/db.dump.gpg"
-  s3_uri="${s3_uri_base}.gpg"
+echo "Estimating database size for upload..."
+# Get database size in bytes for --expected-size parameter
+db_size=$(psql -h $POSTGRES_HOST \
+               -p $POSTGRES_PORT \
+               -U $POSTGRES_USER \
+               -d $POSTGRES_DATABASE \
+               -t -c "SELECT pg_database_size('$POSTGRES_DATABASE');" | xargs)
+
+echo "Database size: $db_size bytes"
+
+# Determine if we need --expected-size (for uploads >50GB)
+size_threshold=$((50 * 1024 * 1024 * 1024))  # 50GB in bytes
+if [ "$db_size" -gt "$size_threshold" ]; then
+  echo "Database size exceeds 50GB, using --expected-size parameter"
+  expected_size_arg="--expected-size $db_size"
 else
-  local_file="backup/db.dump"
-  s3_uri="$s3_uri_base"
+  expected_size_arg=""
 fi
 
-echo "Uploading backup to $S3_BUCKET..."
-aws $aws_args s3 cp "$local_file" "$s3_uri"
-rm "$local_file"
+if [ -n "$PASSPHRASE" ]; then
+  echo "Creating encrypted backup of $POSTGRES_DATABASE database and uploading to $S3_BUCKET..."
+  s3_uri="${s3_uri_base}.gpg"
+  pg_dump --format=custom \
+          -h $POSTGRES_HOST \
+          -p $POSTGRES_PORT \
+          -U $POSTGRES_USER \
+          -d $POSTGRES_DATABASE \
+          $PGDUMP_EXTRA_OPTS \
+          | gpg --symmetric --batch --passphrase "$PASSPHRASE" \
+          | aws $aws_args s3 cp $expected_size_arg - "$s3_uri"
+else
+  echo "Creating backup of $POSTGRES_DATABASE database and uploading to $S3_BUCKET..."
+  s3_uri="$s3_uri_base"
+  pg_dump --format=custom \
+          -h $POSTGRES_HOST \
+          -p $POSTGRES_PORT \
+          -U $POSTGRES_USER \
+          -d $POSTGRES_DATABASE \
+          $PGDUMP_EXTRA_OPTS \
+          | aws $aws_args s3 cp $expected_size_arg - "$s3_uri"
+fi
 
 echo "Backup complete."
 
