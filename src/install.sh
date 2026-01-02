@@ -11,6 +11,7 @@ apk add postgresql-client
 # install gpg
 apk add gnupg
 
+# install s3
 apk add aws-cli
 
 # install go-cron
