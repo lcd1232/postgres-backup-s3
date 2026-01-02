@@ -63,14 +63,21 @@ EOF
 # Function to verify test data
 verify_test_data() {
     echo "Verifying test data..."
-    local result=$(docker compose -f docker-compose.test.yml exec -T postgres psql -U testuser -d testdb -t -c "SELECT COUNT(*) FROM test_table;")
-    local count=$(echo $result | tr -d ' ')
+    local result=$(docker compose -f docker-compose.test.yml exec -T postgres psql -U testuser -d testdb -t -c "SELECT name, value FROM test_table ORDER BY id;" 2>/dev/null | tr -d ' ' | grep -v '^$')
+    local expected="test1|100
+test2|200
+test3|300"
+    local expected_normalized=$(echo "$expected" | tr -d ' ' | grep -v '^$')
     
-    if [ "$count" = "3" ]; then
-        echo -e "${GREEN}✓ Data verification successful: Found 3 rows${NC}"
+    if [ "$result" = "$expected_normalized" ]; then
+        echo -e "${GREEN}✓ Data verification successful: All records match${NC}"
         return 0
     else
-        echo -e "${RED}✗ Data verification failed: Expected 3 rows, found $count${NC}"
+        echo -e "${RED}✗ Data verification failed${NC}"
+        echo "Expected:"
+        echo "$expected"
+        echo "Got:"
+        echo "$result"
         return 1
     fi
 }
@@ -78,12 +85,12 @@ verify_test_data() {
 # Function to drop test data
 drop_test_data() {
     echo "Dropping test data..."
-    docker compose -f docker-compose.test.yml exec -T postgres psql -U testuser -d testdb -c "DROP TABLE IF EXISTS test_table CASCADE;" || true
+    docker compose -f docker-compose.test.yml exec -T postgres psql -U testuser -d testdb -c "DROP TABLE test_table CASCADE;"
 }
 
 # Function to verify if test table exists
 verify_table_exists() {
-    local result=$(docker compose -f docker-compose.test.yml exec -T postgres psql -U testuser -d testdb -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='test_table';" 2>/dev/null || echo "0")
+    local result=$(docker compose -f docker-compose.test.yml exec -T postgres psql -U testuser -d testdb -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='test_table';" 2>/dev/null)
     local count=$(echo $result | tr -d ' ')
     
     if [ "$count" = "0" ]; then
@@ -152,6 +159,9 @@ test_without_passphrase() {
     echo "Verifying data was dropped..."
     if ! verify_table_exists; then
         echo -e "${GREEN}✓ Data successfully dropped${NC}"
+    else
+        echo -e "${RED}✗ Table still exists after drop${NC}"
+        return 1
     fi
     
     # Run restore
@@ -202,6 +212,9 @@ test_with_passphrase() {
     echo "Verifying data was dropped..."
     if ! verify_table_exists; then
         echo -e "${GREEN}✓ Data successfully dropped${NC}"
+    else
+        echo -e "${RED}✗ Table still exists after drop${NC}"
+        return 1
     fi
     
     # Run restore

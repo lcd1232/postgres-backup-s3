@@ -53,9 +53,3 @@ jobs:
           echo "=== Docker Compose Logs ==="
           cd tests
           docker compose -f docker-compose.test.yml logs || true
-
-      - name: Cleanup
-        if: always()
-        run: |
-          cd tests
-          docker compose -f docker-compose.test.yml down -v || true
