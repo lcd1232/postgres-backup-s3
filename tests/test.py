@@ -315,6 +315,100 @@ def test_with_passphrase() -> bool:
         return False
 
 
+def test_database_size_estimation() -> bool:
+    """Test database size estimation and piped upload mechanism."""
+    print_color("\n===== Test 3: Database Size Estimation and Piped Upload =====", Colors.YELLOW)
+    
+    try:
+        # Stop previous test
+        run_command(docker_compose("down", "-v"))
+        
+        print("Starting services (no passphrase)...")
+        env = os.environ.copy()
+        env["PASSPHRASE"] = ""
+        
+        run_command(
+            docker_compose("up", "-d"),
+            env=env
+        )
+        
+        # Wait for services
+        if not wait_for_service("postgres"):
+            return False
+        if not wait_for_service("minio"):
+            return False
+        if not wait_for_service("backup"):
+            return False
+        
+        # Run test sequence
+        create_s3_bucket()
+        create_test_data()
+        
+        if not verify_test_data():
+            return False
+        
+        # Run backup and capture output to verify database size estimation
+        print("Running backup and checking for size estimation...")
+        result = run_command(
+            docker_compose("run", "-T", "backup", "sh", "backup.sh"),
+            capture_output=True
+        )
+        
+        output = result.stdout
+        
+        # Verify that database size was estimated
+        if "Estimating database size for upload..." in output:
+            print_color("✓ Database size estimation is running", Colors.GREEN)
+        else:
+            print_color("✗ Database size estimation not found in output", Colors.RED)
+            return False
+        
+        if "Database size:" in output and "bytes" in output:
+            print_color("✓ Database size is being reported", Colors.GREEN)
+        else:
+            print_color("✗ Database size not reported in output", Colors.RED)
+            return False
+        
+        # Verify backup was uploaded (not using intermediate files)
+        if "Creating backup" in output and "uploading to" in output:
+            print_color("✓ Piped upload mechanism is working", Colors.GREEN)
+        else:
+            print_color("✗ Piped upload not confirmed in output", Colors.RED)
+            return False
+        
+        if "Backup complete" in output:
+            print_color("✓ Backup completed successfully", Colors.GREEN)
+        else:
+            print_color("✗ Backup did not complete", Colors.RED)
+            return False
+        
+        # Now test restore to ensure the piped backup is valid
+        drop_test_data()
+        
+        print("Verifying data was dropped...")
+        if not verify_table_exists():
+            print_color("✓ Data successfully dropped", Colors.GREEN)
+        else:
+            print_color("✗ Table still exists after drop", Colors.RED)
+            return False
+        
+        run_restore()
+        
+        # Verify data is restored
+        if verify_test_data():
+            print_color("✓✓✓ Test 3 PASSED: Database size estimation and piped upload work!", Colors.GREEN)
+            return True
+        else:
+            print_color("✗✗✗ Test 3 FAILED: Data not restored correctly", Colors.RED)
+            return False
+            
+    except Exception as e:
+        print_color(f"✗✗✗ Test 3 FAILED with exception: {e}", Colors.RED)
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 def main() -> int:
     """Main test runner."""
     # Change to tests directory
@@ -325,12 +419,14 @@ def main() -> int:
     
     test1_passed = False
     test2_passed = False
+    test3_passed = False
     
     try:
         try:
             # Run tests
             test1_passed = test_without_passphrase()
             test2_passed = test_with_passphrase()
+            test3_passed = test_database_size_estimation()
         finally:
             # Always cleanup, even if tests fail
             cleanup()
@@ -348,8 +444,13 @@ def main() -> int:
         else:
             print_color("✗ Test 2 (with passphrase): FAILED", Colors.RED)
         
+        if test3_passed:
+            print_color("✓ Test 3 (database size estimation and piped upload): PASSED", Colors.GREEN)
+        else:
+            print_color("✗ Test 3 (database size estimation and piped upload): FAILED", Colors.RED)
+        
         # Exit with appropriate code
-        if test1_passed and test2_passed:
+        if test1_passed and test2_passed and test3_passed:
             print_color("\nAll tests passed!", Colors.GREEN)
             return 0
         else:
