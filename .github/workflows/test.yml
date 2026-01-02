@@ -20,11 +20,16 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Run tests
         run: |
           cd tests
           export BACKUP_IMAGE=postgres-backup-s3:test
-          bash test.sh
+          python3 test.py
 
       - name: Show logs on failure
         if: failure()
