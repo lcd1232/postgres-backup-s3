@@ -27,8 +27,13 @@ def print_color(message: str, color: str = Colors.NC) -> None:
     print(f"{color}{message}{Colors.NC}")
 
 
-def run_command(cmd: list[str], capture_output: bool = False, check: bool = True, 
-                input_text: Optional[str] = None) -> subprocess.CompletedProcess:
+def run_command(
+    cmd: list[str],
+    capture_output: bool = False,
+    check: bool = True, 
+    input_text: Optional[str] = None,
+    env: Optional[dict] = None
+) -> subprocess.CompletedProcess:
     """Run a shell command and return the result."""
     try:
         result = subprocess.run(
@@ -36,7 +41,8 @@ def run_command(cmd: list[str], capture_output: bool = False, check: bool = True
             capture_output=capture_output,
             text=True,
             check=check,
-            input=input_text
+            input=input_text,
+            env=env
         )
         return result
     except subprocess.CalledProcessError as e:
@@ -206,10 +212,9 @@ def test_without_passphrase() -> bool:
         env = os.environ.copy()
         env["PASSPHRASE"] = ""
         
-        subprocess.run(
+        run_command(
             docker_compose("up", "-d"),
-            env=env,
-            check=True
+            env=env
         )
         
         # Wait for services
@@ -264,10 +269,9 @@ def test_with_passphrase() -> bool:
         env = os.environ.copy()
         env["PASSPHRASE"] = "test_passphrase_123"
         
-        subprocess.run(
+        run_command(
             docker_compose("up", "-d"),
-            env=env,
-            check=True
+            env=env
         )
         
         # Wait for services
