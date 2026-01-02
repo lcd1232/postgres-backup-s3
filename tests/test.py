@@ -30,7 +30,7 @@ def print_color(message: str, color: str = Colors.NC) -> None:
 def run_command(
     cmd: list[str],
     capture_output: bool = False,
-    check: bool = True, 
+    check: bool = True,
     input_text: Optional[str] = None,
     env: Optional[dict] = None
 ) -> subprocess.CompletedProcess:
@@ -322,13 +322,17 @@ def main() -> int:
     
     print_color("===== Starting PostgreSQL Backup/Restore Tests =====", Colors.YELLOW)
     
+    test1_passed = False
+    test2_passed = False
+    
     try:
-        # Run tests
-        test1_passed = test_without_passphrase()
-        test2_passed = test_with_passphrase()
-        
-        # Cleanup
-        cleanup()
+        try:
+            # Run tests
+            test1_passed = test_without_passphrase()
+            test2_passed = test_with_passphrase()
+        finally:
+            # Always cleanup, even if tests fail
+            cleanup()
         
         # Print summary
         print_color("\n===== Test Summary =====", Colors.YELLOW)
@@ -353,11 +357,11 @@ def main() -> int:
             
     except KeyboardInterrupt:
         print_color("\nTests interrupted by user", Colors.YELLOW)
-        cleanup()
         return 130
     except Exception as e:
         print_color(f"\nUnexpected error: {e}", Colors.RED)
-        cleanup()
+        import traceback
+        traceback.print_exc()
         return 1
 
 
