@@ -11,6 +11,7 @@ import subprocess
 import sys
 import time
 import os
+import traceback
 from typing import Optional
 
 
@@ -404,7 +405,6 @@ def test_database_size_estimation() -> bool:
             
     except Exception as e:
         print_color(f"✗✗✗ Test 3 FAILED with exception: {e}", Colors.RED)
-        import traceback
         traceback.print_exc()
         return False
 
@@ -462,7 +462,6 @@ def main() -> int:
         return 130
     except Exception as e:
         print_color(f"\nUnexpected error: {e}", Colors.RED)
-        import traceback
         traceback.print_exc()
         return 1
 
