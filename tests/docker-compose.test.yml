@@ -24,7 +24,6 @@ services:
       retries: 5
 
   backup:
-    image: ${BACKUP_IMAGE:-postgres-backup-s3:test}
     build:
       context: ..
       dockerfile: Dockerfile

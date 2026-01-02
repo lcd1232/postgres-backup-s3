@@ -96,7 +96,7 @@ verify_table_exists() {
 
 create_s3_bucket() {
     echo "Creating S3 bucket in MinIO..."
-    docker compose -f docker-compose.test.yml exec -T backup sh -c '
+    docker compose -f docker-compose.test.yml run -T backup sh -c '
         aws --endpoint-url $S3_ENDPOINT s3 mb s3://$S3_BUCKET 2>&1 || echo "Bucket may already exist"
         aws --endpoint-url $S3_ENDPOINT s3 ls s3://$S3_BUCKET 2>&1 && echo "✓ Bucket verified" || echo "✗ Bucket verification failed"
     '
@@ -105,13 +105,13 @@ create_s3_bucket() {
 
 run_backup() {
     echo "Running backup..."
-    docker compose -f docker-compose.test.yml exec -T backup sh backup.sh
+    docker compose -f docker-compose.test.yml run -T backup sh backup.sh
     echo "Backup completed"
 }
 
 run_restore() {
     echo "Running restore..."
-    docker compose -f docker-compose.test.yml exec -T backup sh restore.sh
+    docker compose -f docker-compose.test.yml run -T backup sh restore.sh
     echo "Restore completed"
 }
 
