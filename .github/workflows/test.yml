@@ -2,7 +2,7 @@ name: Test Backup and Restore
 
 on:
   push:
-    branches: ['**']
+    branches: ['master']
   pull_request:
     branches: ['**']
 
@@ -21,25 +21,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image for testing
-        run: |
-          # Build with retry logic for transient network issues
-          for i in 1 2 3; do
-            echo "Build attempt $i..."
-            if DOCKER_BUILDKIT=1 docker build \
-              --build-arg POSTGRES_VERSION=16 \
-              -t postgres-backup-s3:test \
-              . ; then
-              echo "Build successful!"
-              break
-            else
-              if [ $i -eq 3 ]; then
-                echo "Build failed after 3 attempts"
-                exit 1
-              fi
-              echo "Build failed, retrying in 10 seconds..."
-              sleep 10
-            fi
-          done
+        run: docker compose -f docker-compose.test.yml build
 
       - name: Run tests
         run: |

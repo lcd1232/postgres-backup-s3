@@ -13,7 +13,6 @@ cd "$(dirname "$0")"
 
 echo -e "${YELLOW}===== Starting PostgreSQL Backup/Restore Tests =====${NC}"
 
-# Cleanup function
 cleanup() {
     echo -e "${YELLOW}Cleaning up...${NC}"
     docker compose -f docker-compose.test.yml down -v 2>/dev/null || true
@@ -22,7 +21,6 @@ cleanup() {
 # Trap to ensure cleanup happens
 trap cleanup EXIT
 
-# Function to wait for service to be ready
 wait_for_service() {
     local service=$1
     local max_attempts=30
@@ -42,7 +40,6 @@ wait_for_service() {
     return 1
 }
 
-# Function to create test data
 create_test_data() {
     echo "Creating test data in PostgreSQL..."
     docker compose -f docker-compose.test.yml exec -T postgres psql -U testuser -d testdb <<EOF
@@ -60,7 +57,6 @@ EOF
     echo "Test data created successfully"
 }
 
-# Function to verify test data
 verify_test_data() {
     echo "Verifying test data..."
     local result=$(docker compose -f docker-compose.test.yml exec -T postgres psql -U testuser -d testdb -t -c "SELECT name, value FROM test_table ORDER BY id;" 2>/dev/null | tr -d ' ' | grep -v '^$')
@@ -82,13 +78,11 @@ test3|300"
     fi
 }
 
-# Function to drop test data
 drop_test_data() {
     echo "Dropping test data..."
     docker compose -f docker-compose.test.yml exec -T postgres psql -U testuser -d testdb -c "DROP TABLE test_table CASCADE;"
 }
 
-# Function to verify if test table exists
 verify_table_exists() {
     local result=$(docker compose -f docker-compose.test.yml exec -T postgres psql -U testuser -d testdb -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='test_table';" 2>/dev/null)
     local count=$(echo $result | tr -d ' ')
@@ -100,7 +94,6 @@ verify_table_exists() {
     fi
 }
 
-# Function to create S3 bucket
 create_s3_bucket() {
     echo "Creating S3 bucket in MinIO..."
     docker compose -f docker-compose.test.yml exec -T backup sh -c '
@@ -110,14 +103,12 @@ create_s3_bucket() {
     echo "S3 bucket setup complete"
 }
 
-# Function to run backup
 run_backup() {
     echo "Running backup..."
     docker compose -f docker-compose.test.yml exec -T backup sh backup.sh
     echo "Backup completed"
 }
 
-# Function to run restore
 run_restore() {
     echo "Running restore..."
     docker compose -f docker-compose.test.yml exec -T backup sh restore.sh
@@ -128,7 +119,6 @@ run_restore() {
 test_without_passphrase() {
     echo -e "\n${YELLOW}===== Test 1: Backup and Restore WITHOUT Passphrase =====${NC}"
     
-    # Start services without passphrase
     echo "Starting services (no passphrase)..."
     PASSPHRASE="" docker compose -f docker-compose.test.yml up -d
     
@@ -137,22 +127,11 @@ test_without_passphrase() {
     wait_for_service minio
     wait_for_service backup
     
-    # Create S3 bucket
     create_s3_bucket
-    
-    # Create test data
     create_test_data
-    
-    # Verify data exists
     verify_test_data
-    
-    # Run backup
     run_backup
-    
-    # Drop the test data
     drop_test_data
-    
-    # Verify data is gone
     echo "Verifying data was dropped..."
     if ! verify_table_exists; then
         echo -e "${GREEN}✓ Data successfully dropped${NC}"
@@ -160,8 +139,6 @@ test_without_passphrase() {
         echo -e "${RED}✗ Table still exists after drop${NC}"
         return 1
     fi
-    
-    # Run restore
     run_restore
     
     # Verify data is back
@@ -181,31 +158,17 @@ test_with_passphrase() {
     # Stop previous test
     docker compose -f docker-compose.test.yml down -v
     
-    # Start services with passphrase
     echo "Starting services (with passphrase)..."
     PASSPHRASE="test_passphrase_123" docker compose -f docker-compose.test.yml up -d
     
-    # Wait for services to be ready
     wait_for_service postgres
     wait_for_service minio
     wait_for_service backup
-    
-    # Create S3 bucket
     create_s3_bucket
-    
-    # Create test data
     create_test_data
-    
-    # Verify data exists
     verify_test_data
-    
-    # Run backup
     run_backup
-    
-    # Drop the test data
     drop_test_data
-    
-    # Verify data is gone
     echo "Verifying data was dropped..."
     if ! verify_table_exists; then
         echo -e "${GREEN}✓ Data successfully dropped${NC}"
@@ -214,7 +177,6 @@ test_with_passphrase() {
         return 1
     fi
     
-    # Run restore
     run_restore
     
     # Verify data is back
