@@ -81,6 +81,18 @@ drop_test_data() {
     docker compose -f docker-compose.test.yml exec -T postgres psql -U testuser -d testdb -c "DROP TABLE IF EXISTS test_table CASCADE;" || true
 }
 
+# Function to verify if test table exists
+verify_table_exists() {
+    local result=$(docker compose -f docker-compose.test.yml exec -T postgres psql -U testuser -d testdb -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='test_table';" 2>/dev/null || echo "0")
+    local count=$(echo $result | tr -d ' ')
+    
+    if [ "$count" = "0" ]; then
+        return 1
+    else
+        return 0
+    fi
+}
+
 # Function to create S3 bucket
 create_s3_bucket() {
     echo "Creating S3 bucket in MinIO..."
@@ -116,8 +128,7 @@ test_without_passphrase() {
     echo "Starting services (no passphrase)..."
     PASSPHRASE="" docker compose -f docker-compose.test.yml up -d
     
-    # Wait for services
-    sleep 10
+    # Wait for services to be ready
     wait_for_service postgres
     wait_for_service minio
     wait_for_service backup
@@ -139,9 +150,7 @@ test_without_passphrase() {
     
     # Verify data is gone
     echo "Verifying data was dropped..."
-    local result=$(docker compose -f docker-compose.test.yml exec -T postgres psql -U testuser -d testdb -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='test_table';" 2>/dev/null || echo "0")
-    local count=$(echo $result | tr -d ' ')
-    if [ "$count" = "0" ]; then
+    if ! verify_table_exists; then
         echo -e "${GREEN}✓ Data successfully dropped${NC}"
     fi
     
@@ -169,8 +178,7 @@ test_with_passphrase() {
     echo "Starting services (with passphrase)..."
     PASSPHRASE="test_passphrase_123" docker compose -f docker-compose.test.yml up -d
     
-    # Wait for services
-    sleep 10
+    # Wait for services to be ready
     wait_for_service postgres
     wait_for_service minio
     wait_for_service backup
@@ -192,9 +200,7 @@ test_with_passphrase() {
     
     # Verify data is gone
     echo "Verifying data was dropped..."
-    local result=$(docker compose -f docker-compose.test.yml exec -T postgres psql -U testuser -d testdb -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='test_table';" 2>/dev/null || echo "0")
-    local count=$(echo $result | tr -d ' ')
-    if [ "$count" = "0" ]; then
+    if ! verify_table_exists; then
         echo -e "${GREEN}✓ Data successfully dropped${NC}"
     fi
     
