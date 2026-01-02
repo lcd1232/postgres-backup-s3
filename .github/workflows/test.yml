@@ -9,6 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     
     steps:
       - name: Checkout repository
@@ -19,15 +20,37 @@ jobs:
 
       - name: Build Docker image for testing
         run: |
-          DOCKER_BUILDKIT=1 docker build \
-            --build-arg POSTGRES_VERSION=16 \
-            -t postgres-backup-s3:test \
-            .
+          # Build with retry logic for transient network issues
+          for i in 1 2 3; do
+            echo "Build attempt $i..."
+            if DOCKER_BUILDKIT=1 docker build \
+              --build-arg POSTGRES_VERSION=16 \
+              -t postgres-backup-s3:test \
+              . ; then
+              echo "Build successful!"
+              break
+            else
+              if [ $i -eq 3 ]; then
+                echo "Build failed after 3 attempts"
+                exit 1
+              fi
+              echo "Build failed, retrying in 10 seconds..."
+              sleep 10
+            fi
+          done
 
       - name: Run tests
         run: |
           cd tests
+          export BACKUP_IMAGE=postgres-backup-s3:test
           bash test.sh
+
+      - name: Show logs on failure
+        if: failure()
+        run: |
+          echo "=== Docker Compose Logs ==="
+          cd tests
+          docker compose -f docker-compose.test.yml logs || true
 
       - name: Cleanup
         if: always()
