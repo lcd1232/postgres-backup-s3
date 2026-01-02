@@ -31,6 +31,7 @@ services:
       args:
         POSTGRES_VERSION: '16'
     environment:
+      SCHEDULE: '@daily'
       S3_REGION: us-east-1
       S3_ACCESS_KEY_ID: minioadmin
       S3_SECRET_ACCESS_KEY: minioadmin
@@ -47,5 +48,3 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-    # Keep container running for test execution (we manually exec backup.sh and restore.sh)
-    command: ["sh", "-c", "sleep infinity"]

@@ -103,12 +103,9 @@ verify_table_exists() {
 # Function to create S3 bucket
 create_s3_bucket() {
     echo "Creating S3 bucket in MinIO..."
-    # The backup container already has AWS credentials from env.sh
-    # Just need to ensure we source env.sh and create the bucket
     docker compose -f docker-compose.test.yml exec -T backup sh -c '
-        source ./env.sh
-        aws $aws_args s3 mb s3://test-bucket 2>&1 || echo "Bucket may already exist"
-        aws $aws_args s3 ls s3://test-bucket 2>&1 && echo "✓ Bucket verified" || echo "✗ Bucket verification failed"
+        aws --endpoint-url $S3_ENDPOINT s3 mb s3://$S3_BUCKET 2>&1 || echo "Bucket may already exist"
+        aws --endpoint-url $S3_ENDPOINT s3 ls s3://$S3_BUCKET 2>&1 && echo "✓ Bucket verified" || echo "✗ Bucket verification failed"
     '
     echo "S3 bucket setup complete"
 }
