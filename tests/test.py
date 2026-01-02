@@ -178,6 +178,7 @@ def create_s3_bucket() -> None:
     print("Creating S3 bucket in MinIO...")
     
     script = '''
+source ./env.sh
 aws --endpoint-url $S3_ENDPOINT s3 mb s3://$S3_BUCKET 2>&1 || echo "Bucket may already exist"
 aws --endpoint-url $S3_ENDPOINT s3 ls s3://$S3_BUCKET 2>&1 && echo "✓ Bucket verified" || echo "✗ Bucket verification failed"
 '''
