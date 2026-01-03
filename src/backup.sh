@@ -25,7 +25,7 @@ s3_uri_base="s3://${S3_BUCKET}/${S3_PREFIX}/${POSTGRES_DATABASE}_${timestamp}.du
 if [ -n "$PASSPHRASE" ]; then
   echo "Creating encrypted backup and uploading to $S3_BUCKET..."
   s3_uri="${s3_uri_base}.gpg"
-  
+
   # Determine if we need --expected-size parameter
   if [ "$db_size" -gt "$FIFTY_GB_BYTES" ]; then
     echo "Database is larger than 50GB, adding --expected-size parameter"
@@ -35,6 +35,7 @@ if [ -n "$PASSPHRASE" ]; then
             -U $POSTGRES_USER \
             -d $POSTGRES_DATABASE \
             $PGDUMP_EXTRA_OPTS \
+            | pv -i $PV_INTERVAL_SEC \
             | gpg --symmetric --batch --passphrase "$PASSPHRASE" \
             | aws $aws_args s3 cp --expected-size "$db_size" - "$s3_uri"
   else
@@ -44,13 +45,14 @@ if [ -n "$PASSPHRASE" ]; then
             -U $POSTGRES_USER \
             -d $POSTGRES_DATABASE \
             $PGDUMP_EXTRA_OPTS \
+            | pv -i $PV_INTERVAL_SEC \
             | gpg --symmetric --batch --passphrase "$PASSPHRASE" \
             | aws $aws_args s3 cp - "$s3_uri"
   fi
 else
   echo "Creating backup and uploading to $S3_BUCKET..."
   s3_uri="$s3_uri_base"
-  
+
   # Determine if we need --expected-size parameter
   if [ "$db_size" -gt "$FIFTY_GB_BYTES" ]; then
     echo "Database is larger than 50GB, adding --expected-size parameter"
@@ -60,6 +62,7 @@ else
             -U $POSTGRES_USER \
             -d $POSTGRES_DATABASE \
             $PGDUMP_EXTRA_OPTS \
+            | pv -i $PV_INTERVAL_SEC \
             | aws $aws_args s3 cp --expected-size "$db_size" - "$s3_uri"
   else
     pg_dump --format=custom \
@@ -68,6 +71,7 @@ else
             -U $POSTGRES_USER \
             -d $POSTGRES_DATABASE \
             $PGDUMP_EXTRA_OPTS \
+            | pv -i $PV_INTERVAL_SEC \
             | aws $aws_args s3 cp - "$s3_uri"
   fi
 fi

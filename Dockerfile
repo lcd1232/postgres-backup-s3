@@ -2,8 +2,21 @@ ARG POSTGRES_VERSION
 FROM postgres:${POSTGRES_VERSION}-alpine
 ARG TARGETARCH
 
-ADD src/install.sh install.sh
-RUN sh install.sh && rm install.sh && mkdir /backup
+RUN apk add --update-cache --no-cache \
+    # for pg_dump
+    postgresql-client \
+    # for encryption
+    gnupg \
+    # for s3 upload
+    aws-cli \
+    # for pretty progress bar
+    pv \
+    curl && \
+    curl -L https://github.com/ivoronin/go-cron/releases/download/v0.0.5/go-cron_0.0.5_linux_${TARGETARCH}.tar.gz -O && \
+    tar xvf go-cron_0.0.5_linux_${TARGETARCH}.tar.gz && \
+    mv go-cron /usr/local/bin/go-cron && \
+    chmod +x /usr/local/bin/go-cron && \
+    rm go-cron_0.0.5_linux_${TARGETARCH}.tar.gz
 
 ENV POSTGRES_DATABASE=''
 ENV POSTGRES_HOST=''
@@ -21,6 +34,8 @@ ENV S3_S3V4='no'
 ENV SCHEDULE=''
 ENV PASSPHRASE=''
 ENV BACKUP_KEEP_DAYS=''
+# Default: show progress every 5 seconds
+ENV PV_INTERVAL_SEC=5
 
 ADD src/run.sh run.sh
 ADD src/env.sh env.sh
