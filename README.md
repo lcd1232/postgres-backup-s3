@@ -26,6 +26,12 @@ services:
       POSTGRES_DATABASE: dbname
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
+      BACKUP_PRE_COMMAND: 'echo "Starting backup"'              # optional
+      BACKUP_POST_SUCCESS_COMMAND: 'echo "Backup succeeded"'    # optional
+      BACKUP_POST_FAILURE_COMMAND: 'echo "Backup failed"'       # optional
+      RESTORE_PRE_COMMAND: 'echo "Starting restore"'            # optional
+      RESTORE_POST_SUCCESS_COMMAND: 'echo "Restore succeeded"'  # optional
+      RESTORE_POST_FAILURE_COMMAND: 'echo "Restore failed"'     # optional
     volumes:
       - /mnt/path/to/backup/folder:/backup # optional
 ```
@@ -36,6 +42,25 @@ services:
 - Run `docker exec <container name> sh backup.sh` to trigger a backup ad-hoc.
 - If `BACKUP_KEEP_DAYS` is set, backups older than this many days will be deleted from S3.
 - Set `S3_ENDPOINT` if you're using a non-AWS S3-compatible storage provider.
+
+### Backup/Restore Hook Commands
+You can specify optional commands to run before and after backup/restore operations:
+
+**Backup hooks:**
+- `BACKUP_PRE_COMMAND` - Command to run before backup starts. If this fails, the backup will not proceed.
+- `BACKUP_POST_SUCCESS_COMMAND` - Command to run after successful backup completion.
+- `BACKUP_POST_FAILURE_COMMAND` - Command to run if backup fails.
+
+**Restore hooks:**
+- `RESTORE_PRE_COMMAND` - Command to run before restore starts. If this fails, the restore will not proceed.
+- `RESTORE_POST_SUCCESS_COMMAND` - Command to run after successful restore completion.
+- `RESTORE_POST_FAILURE_COMMAND` - Command to run if restore fails.
+
+Example use cases:
+- Send notifications (e.g., `curl -X POST https://example.com/notify?status=success`)
+- Log to external systems
+- Trigger dependent workflows
+- Clean up temporary files
 
 ## Restore
 > [!CAUTION]
