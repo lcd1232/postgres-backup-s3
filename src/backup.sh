@@ -19,36 +19,56 @@ echo "Database size: $db_size bytes"
 timestamp=$(date +"%Y-%m-%dT%H:%M:%S")
 s3_uri_base="s3://${S3_BUCKET}/${S3_PREFIX}/${POSTGRES_DATABASE}_${timestamp}.dump"
 
-# Determine if we need --expected-size parameter (for files > 50GB)
-# 50GB = 53687091200 bytes
-if [ "$db_size" -gt 53687091200 ]; then
-  echo "Database is larger than 50GB, adding --expected-size parameter"
-  expected_size_args="--expected-size $db_size"
-else
-  expected_size_args=""
-fi
-
 if [ -n "$PASSPHRASE" ]; then
   echo "Creating encrypted backup and uploading to $S3_BUCKET (using pipe)..."
   s3_uri="${s3_uri_base}.gpg"
-  pg_dump --format=custom \
-          -h $POSTGRES_HOST \
-          -p $POSTGRES_PORT \
-          -U $POSTGRES_USER \
-          -d $POSTGRES_DATABASE \
-          $PGDUMP_EXTRA_OPTS \
-          | gpg --symmetric --batch --passphrase "$PASSPHRASE" \
-          | aws $aws_args s3 cp $expected_size_args - "$s3_uri"
+  
+  # Determine if we need --expected-size parameter (for files > 50GB)
+  # 50GB = 53687091200 bytes
+  if [ "$db_size" -gt 53687091200 ]; then
+    echo "Database is larger than 50GB, adding --expected-size parameter"
+    pg_dump --format=custom \
+            -h $POSTGRES_HOST \
+            -p $POSTGRES_PORT \
+            -U $POSTGRES_USER \
+            -d $POSTGRES_DATABASE \
+            $PGDUMP_EXTRA_OPTS \
+            | gpg --symmetric --batch --passphrase "$PASSPHRASE" \
+            | aws $aws_args s3 cp --expected-size "$db_size" - "$s3_uri"
+  else
+    pg_dump --format=custom \
+            -h $POSTGRES_HOST \
+            -p $POSTGRES_PORT \
+            -U $POSTGRES_USER \
+            -d $POSTGRES_DATABASE \
+            $PGDUMP_EXTRA_OPTS \
+            | gpg --symmetric --batch --passphrase "$PASSPHRASE" \
+            | aws $aws_args s3 cp - "$s3_uri"
+  fi
 else
   echo "Creating backup and uploading to $S3_BUCKET (using pipe)..."
   s3_uri="$s3_uri_base"
-  pg_dump --format=custom \
-          -h $POSTGRES_HOST \
-          -p $POSTGRES_PORT \
-          -U $POSTGRES_USER \
-          -d $POSTGRES_DATABASE \
-          $PGDUMP_EXTRA_OPTS \
-          | aws $aws_args s3 cp $expected_size_args - "$s3_uri"
+  
+  # Determine if we need --expected-size parameter (for files > 50GB)
+  # 50GB = 53687091200 bytes
+  if [ "$db_size" -gt 53687091200 ]; then
+    echo "Database is larger than 50GB, adding --expected-size parameter"
+    pg_dump --format=custom \
+            -h $POSTGRES_HOST \
+            -p $POSTGRES_PORT \
+            -U $POSTGRES_USER \
+            -d $POSTGRES_DATABASE \
+            $PGDUMP_EXTRA_OPTS \
+            | aws $aws_args s3 cp --expected-size "$db_size" - "$s3_uri"
+  else
+    pg_dump --format=custom \
+            -h $POSTGRES_HOST \
+            -p $POSTGRES_PORT \
+            -U $POSTGRES_USER \
+            -d $POSTGRES_DATABASE \
+            $PGDUMP_EXTRA_OPTS \
+            | aws $aws_args s3 cp - "$s3_uri"
+  fi
 fi
 
 echo "Backup complete."

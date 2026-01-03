@@ -46,20 +46,30 @@ This document describes the implementation of pipe-based backup and restore func
 For backups larger than 50GB, AWS CLI requires the `--expected-size` parameter to avoid failures due to too many parts in multipart upload (default limit is 10,000 parts).
 
 The implementation:
-1. Queries the database size before backup: `SELECT pg_database_size('$POSTGRES_DATABASE')`
+1. Queries the database size before backup: `SELECT pg_database_size(current_database())`
 2. Compares to threshold: 53687091200 bytes (50GB)
-3. Adds `--expected-size $db_size` to AWS CLI command if needed
+3. Adds `--expected-size "$db_size"` to AWS CLI command if needed
 
 ### Pipe Implementation
 
-**Non-encrypted backup**:
+**Non-encrypted backup (< 50GB)**:
 ```bash
-pg_dump --format=custom ... | aws s3 cp $expected_size_arg - "s3://..."
+pg_dump --format=custom ... | aws s3 cp - "s3://..."
 ```
 
-**Encrypted backup**:
+**Non-encrypted backup (> 50GB)**:
 ```bash
-pg_dump --format=custom ... | gpg --symmetric ... | aws s3 cp $expected_size_arg - "s3://..."
+pg_dump --format=custom ... | aws s3 cp --expected-size "$db_size" - "s3://..."
+```
+
+**Encrypted backup (< 50GB)**:
+```bash
+pg_dump --format=custom ... | gpg --symmetric ... | aws s3 cp - "s3://..."
+```
+
+**Encrypted backup (> 50GB)**:
+```bash
+pg_dump --format=custom ... | gpg --symmetric ... | aws s3 cp --expected-size "$db_size" - "s3://..."
 ```
 
 **Non-encrypted restore**:
