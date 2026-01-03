@@ -39,13 +39,13 @@ backup_size=$(aws $aws_args s3api head-object \
 if [ -n "$PASSPHRASE" ]; then
   echo "Downloading encrypted backup from S3 and restoring..."
   aws $aws_args s3 cp "${s3_uri_base}/${key_suffix}" - \
-    | pv -s "$backup_size" -i 10 \
+    | pv -s "$backup_size" -i $PV_INTERVAL_SEC \
     | gpg --decrypt --batch --passphrase "$PASSPHRASE" \
     | pg_restore $conn_opts --clean --if-exists
 else
   echo "Downloading backup from S3 and restoring..."
   aws $aws_args s3 cp "${s3_uri_base}/${key_suffix}" - \
-    | pv -s "$backup_size" -i 10 \
+    | pv -s "$backup_size" -i $PV_INTERVAL_SEC \
     | pg_restore $conn_opts --clean --if-exists
 fi
 
