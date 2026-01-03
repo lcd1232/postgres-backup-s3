@@ -14,6 +14,9 @@ apk add gnupg
 # install s3
 apk add aws-cli
 
+# install pv (pipe viewer) for progress monitoring
+apk add pv
+
 # install go-cron
 apk add curl
 curl -L https://github.com/ivoronin/go-cron/releases/download/v0.0.5/go-cron_0.0.5_linux_${TARGETARCH}.tar.gz -O

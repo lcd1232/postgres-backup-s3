@@ -31,11 +31,13 @@ conn_opts="-h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER -d $POSTGRES_DA
 if [ -n "$PASSPHRASE" ]; then
   echo "Downloading encrypted backup from S3 and restoring (using pipe)..."
   aws $aws_args s3 cp "${s3_uri_base}/${key_suffix}" - \
+    | pv -i 10 \
     | gpg --decrypt --batch --passphrase "$PASSPHRASE" \
     | pg_restore $conn_opts --clean --if-exists
 else
   echo "Downloading backup from S3 and restoring (using pipe)..."
   aws $aws_args s3 cp "${s3_uri_base}/${key_suffix}" - \
+    | pv -i 10 \
     | pg_restore $conn_opts --clean --if-exists
 fi
 

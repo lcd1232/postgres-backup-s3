@@ -35,6 +35,7 @@ if [ -n "$PASSPHRASE" ]; then
             -U $POSTGRES_USER \
             -d $POSTGRES_DATABASE \
             $PGDUMP_EXTRA_OPTS \
+            | pv -i 10 \
             | gpg --symmetric --batch --passphrase "$PASSPHRASE" \
             | aws $aws_args s3 cp --expected-size "$db_size" - "$s3_uri"
   else
@@ -44,6 +45,7 @@ if [ -n "$PASSPHRASE" ]; then
             -U $POSTGRES_USER \
             -d $POSTGRES_DATABASE \
             $PGDUMP_EXTRA_OPTS \
+            | pv -i 10 \
             | gpg --symmetric --batch --passphrase "$PASSPHRASE" \
             | aws $aws_args s3 cp - "$s3_uri"
   fi
@@ -60,6 +62,7 @@ else
             -U $POSTGRES_USER \
             -d $POSTGRES_DATABASE \
             $PGDUMP_EXTRA_OPTS \
+            | pv -i 10 \
             | aws $aws_args s3 cp --expected-size "$db_size" - "$s3_uri"
   else
     pg_dump --format=custom \
@@ -68,6 +71,7 @@ else
             -U $POSTGRES_USER \
             -d $POSTGRES_DATABASE \
             $PGDUMP_EXTRA_OPTS \
+            | pv -i 10 \
             | aws $aws_args s3 cp - "$s3_uri"
   fi
 fi
