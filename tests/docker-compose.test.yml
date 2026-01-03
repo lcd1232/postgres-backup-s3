@@ -28,7 +28,7 @@ services:
       context: ..
       dockerfile: Dockerfile
       args:
-        POSTGRES_VERSION: '16'
+        POSTGRES_VERSION: "16"
     environment:
       S3_REGION: us-east-1
       S3_ACCESS_KEY_ID: minioadmin
@@ -41,6 +41,7 @@ services:
       POSTGRES_USER: testuser
       POSTGRES_PASSWORD: testpass
       PASSPHRASE: ${PASSPHRASE:-}
+      PV_INTERVAL_SEC: 0.1
     depends_on:
       postgres:
         condition: service_healthy
