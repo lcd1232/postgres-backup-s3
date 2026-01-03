@@ -62,6 +62,9 @@ Example use cases:
 - Trigger dependent workflows
 - Clean up temporary files
 
+> [!WARNING]
+> Hook commands are executed using `eval`, which means they run with the same privileges as the backup/restore scripts. Only use hook commands from trusted sources. Since these are environment variables you control in your Docker configuration, ensure they don't contain untrusted input.
+
 ## Restore
 > [!CAUTION]
 > DATA LOSS! All database objects will be dropped and re-created.

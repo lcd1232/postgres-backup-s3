@@ -28,7 +28,7 @@ def run_command(
     capture_output: bool = False,
     check: bool = True,
     input_text: Optional[str] = None,
-    env: Optional[dict] = None
+    env: Optional[dict[str, str]] = None
 ) -> subprocess.CompletedProcess:
     """Run a shell command and return the result."""
     try:
