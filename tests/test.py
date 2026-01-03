@@ -32,8 +32,8 @@ def run_command(
     capture_output: bool = False,
     check: bool = True,
     input_text: Optional[str] = None,
-    env: Optional[dict] = None
-) -> subprocess.CompletedProcess:
+    env: Optional[dict[str, str]] = None
+) -> subprocess.CompletedProcess[str]:
     """Run a shell command and return the result."""
     try:
         result = subprocess.run(
@@ -315,6 +315,155 @@ def test_with_passphrase() -> bool:
         return False
 
 
+def test_backup_hooks() -> bool:
+    """Test backup with hooks."""
+    print_color("\n===== Test 3: Backup with Hooks =====", Colors.YELLOW)
+    
+    try:
+        # Create marker files in the backup container
+        setup_script = '''
+# Pre-command creates a file
+echo "echo 'PRE_BACKUP' > /tmp/pre_marker" > /tmp/pre_cmd.sh
+# Success command creates a file
+echo "echo 'BACKUP_SUCCESS' > /tmp/success_marker" > /tmp/success_cmd.sh
+# Make them executable
+chmod +x /tmp/pre_cmd.sh /tmp/success_cmd.sh
+'''
+        
+        run_command(
+            docker_compose("exec", "-T", "backup", "sh", "-c", setup_script),
+            capture_output=False
+        )
+        
+        # Set environment variables for hooks
+        env = os.environ.copy()
+        env["BACKUP_PRE_COMMAND"] = "/tmp/pre_cmd.sh"
+        env["BACKUP_POST_SUCCESS_COMMAND"] = "/tmp/success_cmd.sh"
+        env["BACKUP_POST_FAILURE_COMMAND"] = "echo 'BACKUP_FAILED' > /tmp/failure_marker"
+        
+        # Run backup with hooks
+        print("Running backup with hooks...")
+        result = run_command(
+            docker_compose("run", "-T", "backup", "sh", "backup.sh"),
+            capture_output=True,
+            env=env
+        )
+        
+        print("Backup output:")
+        print(result.stdout)
+        
+        # Verify hooks were executed
+        print("Verifying hooks were executed...")
+        
+        # Check pre-command marker
+        pre_result = run_command(
+            docker_compose("exec", "-T", "backup", "cat", "/tmp/pre_marker"),
+            capture_output=True,
+            check=False
+        )
+        
+        # Check success-command marker  
+        success_result = run_command(
+            docker_compose("exec", "-T", "backup", "cat", "/tmp/success_marker"),
+            capture_output=True,
+            check=False
+        )
+        
+        # Check failure-command marker (should not exist)
+        failure_result = run_command(
+            docker_compose("exec", "-T", "backup", "cat", "/tmp/failure_marker"),
+            capture_output=True,
+            check=False
+        )
+        
+        pre_executed = pre_result.returncode == 0 and "PRE_BACKUP" in pre_result.stdout
+        success_executed = success_result.returncode == 0 and "BACKUP_SUCCESS" in success_result.stdout
+        failure_not_executed = failure_result.returncode != 0
+        
+        if pre_executed and success_executed and failure_not_executed:
+            print_color("✓✓✓ Test 3 PASSED: Backup hooks executed correctly", Colors.GREEN)
+            return True
+        else:
+            print_color("✗✗✗ Test 3 FAILED: Hooks did not execute as expected", Colors.RED)
+            print(f"  Pre-command executed: {pre_executed}")
+            print(f"  Success command executed: {success_executed}")
+            print(f"  Failure command not executed: {failure_not_executed}")
+            return False
+            
+    except Exception as e:
+        print_color(f"✗✗✗ Test 3 FAILED with exception: {e}", Colors.RED)
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def test_restore_hooks() -> bool:
+    """Test restore with hooks."""
+    print_color("\n===== Test 4: Restore with Hooks =====", Colors.YELLOW)
+    
+    try:
+        # Set environment variables for hooks
+        env = os.environ.copy()
+        env["RESTORE_PRE_COMMAND"] = "echo 'PRE_RESTORE' > /tmp/restore_pre_marker"
+        env["RESTORE_POST_SUCCESS_COMMAND"] = "echo 'RESTORE_SUCCESS' > /tmp/restore_success_marker"
+        env["RESTORE_POST_FAILURE_COMMAND"] = "echo 'RESTORE_FAILED' > /tmp/restore_failure_marker"
+        
+        # Run restore with hooks
+        print("Running restore with hooks...")
+        result = run_command(
+            docker_compose("run", "-T", "backup", "sh", "restore.sh"),
+            capture_output=True,
+            env=env
+        )
+        
+        print("Restore output:")
+        print(result.stdout)
+        
+        # Verify hooks were executed
+        print("Verifying hooks were executed...")
+        
+        # Check pre-command marker
+        pre_result = run_command(
+            docker_compose("exec", "-T", "backup", "cat", "/tmp/restore_pre_marker"),
+            capture_output=True,
+            check=False
+        )
+        
+        # Check success-command marker
+        success_result = run_command(
+            docker_compose("exec", "-T", "backup", "cat", "/tmp/restore_success_marker"),
+            capture_output=True,
+            check=False
+        )
+        
+        # Check failure-command marker (should not exist)
+        failure_result = run_command(
+            docker_compose("exec", "-T", "backup", "cat", "/tmp/restore_failure_marker"),
+            capture_output=True,
+            check=False
+        )
+        
+        pre_executed = pre_result.returncode == 0 and "PRE_RESTORE" in pre_result.stdout
+        success_executed = success_result.returncode == 0 and "RESTORE_SUCCESS" in success_result.stdout
+        failure_not_executed = failure_result.returncode != 0
+        
+        if pre_executed and success_executed and failure_not_executed:
+            print_color("✓✓✓ Test 4 PASSED: Restore hooks executed correctly", Colors.GREEN)
+            return True
+        else:
+            print_color("✗✗✗ Test 4 FAILED: Hooks did not execute as expected", Colors.RED)
+            print(f"  Pre-command executed: {pre_executed}")
+            print(f"  Success command executed: {success_executed}")
+            print(f"  Failure command not executed: {failure_not_executed}")
+            return False
+            
+    except Exception as e:
+        print_color(f"✗✗✗ Test 4 FAILED with exception: {e}", Colors.RED)
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 def main() -> int:
     """Main test runner."""
     # Change to tests directory
@@ -325,12 +474,22 @@ def main() -> int:
     
     test1_passed = False
     test2_passed = False
+    test3_passed = False
+    test4_passed = False
     
     try:
         try:
             # Run tests
             test1_passed = test_without_passphrase()
             test2_passed = test_with_passphrase()
+            
+            # Run hook tests if basic tests pass
+            if test1_passed or test2_passed:
+                test3_passed = test_backup_hooks()
+                
+                # Drop and restore data for restore hooks test
+                drop_test_data()
+                test4_passed = test_restore_hooks()
         finally:
             # Always cleanup, even if tests fail
             cleanup()
@@ -348,8 +507,18 @@ def main() -> int:
         else:
             print_color("✗ Test 2 (with passphrase): FAILED", Colors.RED)
         
+        if test3_passed:
+            print_color("✓ Test 3 (backup hooks): PASSED", Colors.GREEN)
+        else:
+            print_color("✗ Test 3 (backup hooks): FAILED", Colors.RED)
+        
+        if test4_passed:
+            print_color("✓ Test 4 (restore hooks): PASSED", Colors.GREEN)
+        else:
+            print_color("✗ Test 4 (restore hooks): FAILED", Colors.RED)
+        
         # Exit with appropriate code
-        if test1_passed and test2_passed:
+        if test1_passed and test2_passed and test3_passed and test4_passed:
             print_color("\nAll tests passed!", Colors.GREEN)
             return 0
         else:

@@ -47,12 +47,12 @@ services:
 You can specify optional commands to run before and after backup/restore operations:
 
 **Backup hooks:**
-- `BACKUP_PRE_COMMAND` - Command to run before backup starts. If this fails, the backup will not proceed.
+- `BACKUP_PRE_COMMAND` - Command to run before backup starts.
 - `BACKUP_POST_SUCCESS_COMMAND` - Command to run after successful backup completion.
 - `BACKUP_POST_FAILURE_COMMAND` - Command to run if backup fails.
 
 **Restore hooks:**
-- `RESTORE_PRE_COMMAND` - Command to run before restore starts. If this fails, the restore will not proceed.
+- `RESTORE_PRE_COMMAND` - Command to run before restore starts.
 - `RESTORE_POST_SUCCESS_COMMAND` - Command to run after successful restore completion.
 - `RESTORE_POST_FAILURE_COMMAND` - Command to run if restore fails.
 
@@ -61,9 +61,6 @@ Example use cases:
 - Log to external systems
 - Trigger dependent workflows
 - Clean up temporary files
-
-> [!WARNING]
-> Hook commands are executed using `eval`, which means they run with the same privileges as the backup/restore scripts. Only use hook commands from trusted sources. Since these are environment variables you control in your Docker configuration, ensure they don't contain untrusted input.
 
 ## Restore
 > [!CAUTION]

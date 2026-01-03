@@ -11,12 +11,7 @@ if [ -n "${RESTORE_PRE_COMMAND:-}" ]; then
   if eval "$RESTORE_PRE_COMMAND"; then
     echo "Pre-restore command completed successfully."
   else
-    echo "Pre-restore command failed with exit code $?"
-    if [ -n "${RESTORE_POST_FAILURE_COMMAND:-}" ]; then
-      echo "Running post-failure command..."
-      eval "$RESTORE_POST_FAILURE_COMMAND" || true
-    fi
-    exit 1
+    echo "Warning: Pre-restore command failed with exit code $?"
   fi
 fi
 

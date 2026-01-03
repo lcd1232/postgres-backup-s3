@@ -14,12 +14,7 @@ if [ -n "${BACKUP_PRE_COMMAND:-}" ]; then
   if eval "$BACKUP_PRE_COMMAND"; then
     echo "Pre-backup command completed successfully."
   else
-    echo "Pre-backup command failed with exit code $?"
-    if [ -n "${BACKUP_POST_FAILURE_COMMAND:-}" ]; then
-      echo "Running post-failure command..."
-      eval "$BACKUP_POST_FAILURE_COMMAND" || true
-    fi
-    exit 1
+    echo "Warning: Pre-backup command failed with exit code $?"
   fi
 fi
 
