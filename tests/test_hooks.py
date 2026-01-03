@@ -29,7 +29,7 @@ def run_command(
     check: bool = True,
     input_text: Optional[str] = None,
     env: Optional[dict[str, str]] = None
-) -> subprocess.CompletedProcess:
+) -> subprocess.CompletedProcess[str]:
     """Run a shell command and return the result."""
     try:
         result = subprocess.run(
