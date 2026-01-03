@@ -28,16 +28,24 @@ fi
 
 conn_opts="-h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER -d $POSTGRES_DATABASE"
 
+# Get the backup file size for progress display
+echo "Getting backup file size..."
+backup_size=$(aws $aws_args s3api head-object \
+  --bucket "${S3_BUCKET}" \
+  --key "${S3_PREFIX}/${key_suffix}" \
+  --query 'ContentLength' \
+  --output text)
+
 if [ -n "$PASSPHRASE" ]; then
   echo "Downloading encrypted backup from S3 and restoring (using pipe)..."
   aws $aws_args s3 cp "${s3_uri_base}/${key_suffix}" - \
-    | pv -i 10 \
+    | pv -s "$backup_size" -i 10 \
     | gpg --decrypt --batch --passphrase "$PASSPHRASE" \
     | pg_restore $conn_opts --clean --if-exists
 else
   echo "Downloading backup from S3 and restoring (using pipe)..."
   aws $aws_args s3 cp "${s3_uri_base}/${key_suffix}" - \
-    | pv -i 10 \
+    | pv -s "$backup_size" -i 10 \
     | pg_restore $conn_opts --clean --if-exists
 fi
 
