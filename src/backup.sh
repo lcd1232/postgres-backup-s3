@@ -23,10 +23,10 @@ timestamp=$(date +"%Y-%m-%dT%H:%M:%S")
 s3_uri_base="s3://${S3_BUCKET}/${S3_PREFIX}/${POSTGRES_DATABASE}_${timestamp}.dump"
 
 if [ -n "$PASSPHRASE" ]; then
-  echo "Creating encrypted backup and uploading to $S3_BUCKET (using pipe)..."
+  echo "Creating encrypted backup and uploading to $S3_BUCKET..."
   s3_uri="${s3_uri_base}.gpg"
   
-  # Determine if we need --expected-size parameter (for files > 50GB)
+  # Determine if we need --expected-size parameter
   if [ "$db_size" -gt "$FIFTY_GB_BYTES" ]; then
     echo "Database is larger than 50GB, adding --expected-size parameter"
     pg_dump --format=custom \
@@ -48,10 +48,10 @@ if [ -n "$PASSPHRASE" ]; then
             | aws $aws_args s3 cp - "$s3_uri"
   fi
 else
-  echo "Creating backup and uploading to $S3_BUCKET (using pipe)..."
+  echo "Creating backup and uploading to $S3_BUCKET..."
   s3_uri="$s3_uri_base"
   
-  # Determine if we need --expected-size parameter (for files > 50GB)
+  # Determine if we need --expected-size parameter
   if [ "$db_size" -gt "$FIFTY_GB_BYTES" ]; then
     echo "Database is larger than 50GB, adding --expected-size parameter"
     pg_dump --format=custom \
