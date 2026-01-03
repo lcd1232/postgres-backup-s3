@@ -5,6 +5,9 @@ set -o pipefail
 
 source ./env.sh
 
+# Constants
+FIFTY_GB_BYTES=53687091200  # 50GB threshold for --expected-size parameter
+
 # Get database size to determine if we need --expected-size for AWS CLI
 # This is needed for backups larger than 50GB
 echo "Calculating database size..."
@@ -12,7 +15,7 @@ db_size=$(psql -h $POSTGRES_HOST \
                -p $POSTGRES_PORT \
                -U $POSTGRES_USER \
                -d $POSTGRES_DATABASE \
-               -t -c "SELECT pg_database_size(current_database());" | tr -d ' ')
+               -t -c "SELECT pg_database_size(current_database());" | xargs echo -n)
 
 echo "Database size: $db_size bytes"
 
@@ -24,8 +27,7 @@ if [ -n "$PASSPHRASE" ]; then
   s3_uri="${s3_uri_base}.gpg"
   
   # Determine if we need --expected-size parameter (for files > 50GB)
-  # 50GB = 53687091200 bytes
-  if [ "$db_size" -gt 53687091200 ]; then
+  if [ "$db_size" -gt "$FIFTY_GB_BYTES" ]; then
     echo "Database is larger than 50GB, adding --expected-size parameter"
     pg_dump --format=custom \
             -h $POSTGRES_HOST \
@@ -50,8 +52,7 @@ else
   s3_uri="$s3_uri_base"
   
   # Determine if we need --expected-size parameter (for files > 50GB)
-  # 50GB = 53687091200 bytes
-  if [ "$db_size" -gt 53687091200 ]; then
+  if [ "$db_size" -gt "$FIFTY_GB_BYTES" ]; then
     echo "Database is larger than 50GB, adding --expected-size parameter"
     pg_dump --format=custom \
             -h $POSTGRES_HOST \
