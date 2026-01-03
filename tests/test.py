@@ -12,6 +12,7 @@ import os
 import subprocess
 import sys
 import time
+import traceback
 from typing import Optional
 
 
@@ -295,9 +296,6 @@ def test_with_passphrase() -> bool:
     )
 
     try:
-        # Stop previous test
-        run_command(docker_compose("down", "--volumes", "--remove-orphans"))
-
         print("Starting services (with passphrase)...")
         env = os.environ.copy()
         env["PASSPHRASE"] = "test_passphrase_123"
@@ -359,17 +357,21 @@ def test_backup_hooks() -> bool:
         env["BACKUP_POST_FAILURE_COMMAND"] = (
             "echo 'BACKUP_FAILED' > /tmp/failure_marker"
         )
+        run_command(docker_compose("up", "--detach"), env=env)
+        # Wait for services
+        if not wait_for_service("postgres"):
+            return False
+        if not wait_for_service("minio"):
+            return False
 
-        # Run backup with hooks
-        print("Running backup with hooks...")
-        result = run_command(
-            docker_compose("run", "-T", "backup", "sh", "backup.sh"),
-            capture_output=True,
-            env=env,
-        )
+        # Run test sequence
+        create_s3_bucket()
+        create_test_data()
 
-        print("Backup output:")
-        print(result.stdout)
+        if not verify_test_data():
+            return False
+
+        run_backup()
 
         # Verify hooks were executed
         print("Verifying hooks were executed...")
@@ -438,18 +440,24 @@ def test_restore_hooks() -> bool:
             "echo 'RESTORE_FAILED' > /tmp/restore_failure_marker"
         )
 
-        # Run restore with hooks
-        print("Running restore with hooks...")
-        result = run_command(
-            docker_compose("run", "-T", "backup", "sh", "restore.sh"),
-            capture_output=True,
-            env=env,
-        )
+        run_command(docker_compose("up", "--detach"), env=env)
+        # Wait for services
+        if not wait_for_service("postgres"):
+            return False
+        if not wait_for_service("minio"):
+            return False
 
-        print("Restore output:")
-        print(result.stdout)
+        # Run test sequence
+        create_s3_bucket()
+        create_test_data()
+        run_backup()
+        drop_test_data()
 
-        # Verify hooks were executed
+        if not verify_test_data():
+            return False
+
+        run_restore()
+
         print("Verifying hooks were executed...")
 
         # Check pre-command marker
@@ -523,15 +531,13 @@ def main() -> int:
         try:
             # Run tests
             test1_passed = test_without_passphrase()
+            run_command(docker_compose("down", "--volumes", "--remove-orphans"))
             test2_passed = test_with_passphrase()
-
-            # Run hook tests if basic tests pass
-            if test1_passed or test2_passed:
-                test3_passed = test_backup_hooks()
-
-                # Drop and restore data for restore hooks test
-                drop_test_data()
-                test4_passed = test_restore_hooks()
+            run_command(docker_compose("down", "--volumes", "--remove-orphans"))
+            test3_passed = test_backup_hooks()
+            run_command(docker_compose("down", "--volumes", "--remove-orphans"))
+            test4_passed = test_restore_hooks()
+            run_command(docker_compose("down", "--volumes", "--remove-orphans"))
         finally:
             # Always cleanup, even if tests fail
             cleanup()
@@ -572,8 +578,6 @@ def main() -> int:
         return 130
     except Exception as e:
         print_color(f"\nUnexpected error: {e}", Colors.RED)
-        import traceback
-
         traceback.print_exc()
         return 1
 

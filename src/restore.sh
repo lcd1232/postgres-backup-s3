@@ -1,6 +1,6 @@
 #! /bin/sh
 
-set -u # `-e` omitted intentionally, but i can't remember why exactly :'(
+set -eu
 set -o pipefail
 
 source ./env.sh
