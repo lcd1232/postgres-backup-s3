@@ -36,6 +36,8 @@ ENV PASSPHRASE=''
 ENV BACKUP_KEEP_DAYS=''
 # Default: show progress every 5 seconds
 ENV PV_INTERVAL_SEC=5
+# Default: 50GB threshold to use --expected-size argument for aws s3 cp
+ENV EXPECTED_SIZE_THRESHOLD_BYTES=53687091200
 
 ADD src/run.sh run.sh
 ADD src/env.sh env.sh
