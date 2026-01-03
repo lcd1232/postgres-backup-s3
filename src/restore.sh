@@ -26,19 +26,17 @@ else
   )
 fi
 
-echo "Fetching backup from S3..."
-aws $aws_args s3 cp "${s3_uri_base}/${key_suffix}" "backup/db${file_type}"
-
-if [ -n "$PASSPHRASE" ]; then
-  echo "Decrypting backup..."
-  gpg --decrypt --batch --passphrase "$PASSPHRASE" backup/db.dump.gpg > backup/db.dump
-  rm backup/db.dump.gpg
-fi
-
 conn_opts="-h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER -d $POSTGRES_DATABASE"
 
-echo "Restoring from backup..."
-pg_restore $conn_opts --clean --if-exists backup/db.dump
-rm backup/db.dump
+if [ -n "$PASSPHRASE" ]; then
+  echo "Downloading encrypted backup from S3 and restoring (using pipe)..."
+  aws $aws_args s3 cp "${s3_uri_base}/${key_suffix}" - \
+    | gpg --decrypt --batch --passphrase "$PASSPHRASE" \
+    | pg_restore $conn_opts --clean --if-exists
+else
+  echo "Downloading backup from S3 and restoring (using pipe)..."
+  aws $aws_args s3 cp "${s3_uri_base}/${key_suffix}" - \
+    | pg_restore $conn_opts --clean --if-exists
+fi
 
 echo "Restore complete."

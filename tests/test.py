@@ -3,7 +3,8 @@
 PostgreSQL Backup/Restore Test Suite
 
 This script tests the backup and restore functionality of the postgres-backup-s3 container
-with and without encryption (passphrase).
+with and without encryption (passphrase). Tests validate the pipe-based mechanism for
+streaming backups directly to S3 without writing to disk first.
 """
 
 from __future__ import annotations
@@ -205,8 +206,8 @@ def run_restore() -> None:
 
 
 def test_without_passphrase() -> bool:
-    """Test backup and restore without passphrase."""
-    print_color("\n===== Test 1: Backup and Restore WITHOUT Passphrase =====", Colors.YELLOW)
+    """Test backup and restore without passphrase using pipe mechanism."""
+    print_color("\n===== Test 1: Backup and Restore WITHOUT Passphrase (using pipe) =====", Colors.YELLOW)
     
     try:
         print("Starting services (no passphrase)...")
@@ -259,8 +260,8 @@ def test_without_passphrase() -> bool:
 
 
 def test_with_passphrase() -> bool:
-    """Test backup and restore with passphrase."""
-    print_color("\n===== Test 2: Backup and Restore WITH Passphrase =====", Colors.YELLOW)
+    """Test backup and restore with passphrase using pipe mechanism."""
+    print_color("\n===== Test 2: Backup and Restore WITH Passphrase (using pipe) =====", Colors.YELLOW)
     
     try:
         # Stop previous test
