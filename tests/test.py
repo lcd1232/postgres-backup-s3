@@ -7,19 +7,20 @@ with and without encryption (passphrase).
 """
 
 from __future__ import annotations
+
+import os
 import subprocess
 import sys
 import time
-import os
 from typing import Optional
 
 
 # ANSI color codes
 class Colors:
-    RED = '\033[0;31m'
-    GREEN = '\033[0;32m'
-    YELLOW = '\033[1;33m'
-    NC = '\033[0m'  # No Color
+    RED = "\033[0;31m"
+    GREEN = "\033[0;32m"
+    YELLOW = "\033[1;33m"
+    NC = "\033[0m"  # No Color
 
 
 def print_color(message: str, color: str = Colors.NC) -> None:
@@ -32,7 +33,7 @@ def run_command(
     capture_output: bool = False,
     check: bool = True,
     input_text: Optional[str] = None,
-    env: Optional[dict[str, str]] = None
+    env: Optional[dict[str, str]] = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run a shell command and return the result."""
     try:
@@ -42,7 +43,7 @@ def run_command(
             text=True,
             check=check,
             input=input_text,
-            env=env
+            env=env,
         )
         return result
     except subprocess.CalledProcessError as e:
@@ -58,34 +59,34 @@ def run_command(
 
 def docker_compose(*args: str) -> list[str]:
     """Build docker-compose command with test config."""
-    return ["docker", "compose", "-f", "docker-compose.test.yml"] + list(args)
+    return ["docker", "compose", "--file", "docker-compose.test.yml"] + list(args)
 
 
 def cleanup() -> None:
     """Clean up Docker containers and volumes."""
     print_color("Cleaning up...", Colors.YELLOW)
-    run_command(docker_compose("down", "-v"), check=False)
+    run_command(docker_compose("down", "--volumes", "--remove-orphans"), check=False)
 
 
 def wait_for_service(service: str, max_attempts: int = 30) -> bool:
     """Wait for a Docker service to be ready."""
     print(f"Waiting for {service} to be ready...")
-    
-    for attempt in range(max_attempts):
+
+    for _ in range(max_attempts):
         try:
             result = run_command(
                 docker_compose("exec", "-T", service, "echo", "ready"),
                 capture_output=True,
-                check=False
+                check=False,
             )
             if result.returncode == 0:
                 print(f"{service} is ready!")
                 return True
         except Exception:
             pass
-        
+
         time.sleep(2)
-    
+
     print_color(f"{service} failed to become ready", Colors.RED)
     return False
 
@@ -93,7 +94,7 @@ def wait_for_service(service: str, max_attempts: int = 30) -> bool:
 def create_test_data() -> None:
     """Create test data in PostgreSQL."""
     print("Creating test data in PostgreSQL...")
-    
+
     sql = """
 CREATE TABLE IF NOT EXISTS test_table (
     id SERIAL PRIMARY KEY,
@@ -101,16 +102,18 @@ CREATE TABLE IF NOT EXISTS test_table (
     value INTEGER
 );
 
-INSERT INTO test_table (name, value) VALUES 
+INSERT INTO test_table (name, value) VALUES
     ('test1', 100),
     ('test2', 200),
     ('test3', 300);
 """
-    
-    result = run_command(
-        docker_compose("exec", "-T", "postgres", "psql", "-U", "testuser", "-d", "testdb"),
+
+    run_command(
+        docker_compose(
+            "exec", "-T", "postgres", "psql", "-U", "testuser", "-d", "testdb"
+        ),
         input_text=sql,
-        capture_output=True
+        capture_output=True,
     )
     print("Test data created successfully")
 
@@ -118,21 +121,32 @@ INSERT INTO test_table (name, value) VALUES
 def verify_test_data() -> bool:
     """Verify test data in PostgreSQL."""
     print("Verifying test data...")
-    
+
     result = run_command(
         docker_compose(
-            "exec", "-T", "postgres", "psql", "-U", "testuser", "-d", "testdb",
-            "-t", "-c", "SELECT name, value FROM test_table ORDER BY id;"
+            "exec",
+            "-T",
+            "postgres",
+            "psql",
+            "-U",
+            "testuser",
+            "-d",
+            "testdb",
+            "-t",
+            "-c",
+            "SELECT name, value FROM test_table ORDER BY id;",
         ),
-        capture_output=True
+        capture_output=True,
     )
-    
+
     # Normalize output: remove spaces and empty lines
     output = result.stdout.strip()
-    lines = [line.strip().replace(' ', '') for line in output.split('\n') if line.strip()]
-    
+    lines = [
+        line.strip().replace(" ", "") for line in output.split("\n") if line.strip()
+    ]
+
     expected = ["test1|100", "test2|200", "test3|300"]
-    
+
     if lines == expected:
         print_color("✓ Data verification successful: All records match", Colors.GREEN)
         return True
@@ -152,10 +166,18 @@ def drop_test_data() -> None:
     print("Dropping test data...")
     run_command(
         docker_compose(
-            "exec", "-T", "postgres", "psql", "-U", "testuser", "-d", "testdb",
-            "-c", "DROP TABLE test_table CASCADE;"
+            "exec",
+            "-T",
+            "postgres",
+            "psql",
+            "-U",
+            "testuser",
+            "-d",
+            "testdb",
+            "-c",
+            "DROP TABLE test_table CASCADE;",
         ),
-        capture_output=True
+        capture_output=True,
     )
 
 
@@ -163,12 +185,21 @@ def verify_table_exists() -> bool:
     """Check if test table exists in PostgreSQL."""
     result = run_command(
         docker_compose(
-            "exec", "-T", "postgres", "psql", "-U", "testuser", "-d", "testdb",
-            "-t", "-c", "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='test_table';"
+            "exec",
+            "-T",
+            "postgres",
+            "psql",
+            "-U",
+            "testuser",
+            "-d",
+            "testdb",
+            "-t",
+            "-c",
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='test_table';",
         ),
-        capture_output=True
+        capture_output=True,
     )
-    
+
     count = int(result.stdout.strip())
     return count > 0
 
@@ -176,16 +207,15 @@ def verify_table_exists() -> bool:
 def create_s3_bucket() -> None:
     """Create S3 bucket in MinIO."""
     print("Creating S3 bucket in MinIO...")
-    
-    script = '''
+
+    script = """
 source ./env.sh
 aws --endpoint-url $S3_ENDPOINT s3 mb s3://$S3_BUCKET 2>&1 || echo "Bucket may already exist"
 aws --endpoint-url $S3_ENDPOINT s3 ls s3://$S3_BUCKET 2>&1 && echo "✓ Bucket verified" || echo "✗ Bucket verification failed"
-'''
-    
+"""
+
     run_command(
-        docker_compose("run", "-T", "backup", "sh", "-c", script),
-        capture_output=False
+        docker_compose("run", "-T", "backup", "sh", "-c", script), capture_output=False
     )
     print("S3 bucket setup complete")
 
@@ -206,53 +236,53 @@ def run_restore() -> None:
 
 def test_without_passphrase() -> bool:
     """Test backup and restore without passphrase."""
-    print_color("\n===== Test 1: Backup and Restore WITHOUT Passphrase =====", Colors.YELLOW)
-    
+    print_color(
+        "\n===== Test 1: Backup and Restore WITHOUT Passphrase =====", Colors.YELLOW
+    )
+
     try:
         print("Starting services (no passphrase)...")
         env = os.environ.copy()
         env["PASSPHRASE"] = ""
-        
-        run_command(
-            docker_compose("up", "-d"),
-            env=env
-        )
-        
+
+        run_command(docker_compose("up", "--detach"), env=env)
+
         # Wait for services
         if not wait_for_service("postgres"):
             return False
         if not wait_for_service("minio"):
             return False
-        if not wait_for_service("backup"):
-            return False
-        
+
         # Run test sequence
         create_s3_bucket()
         create_test_data()
-        
+
         if not verify_test_data():
             return False
-        
+
         run_backup()
         drop_test_data()
-        
+
         print("Verifying data was dropped...")
         if not verify_table_exists():
             print_color("✓ Data successfully dropped", Colors.GREEN)
         else:
             print_color("✗ Table still exists after drop", Colors.RED)
             return False
-        
+
         run_restore()
-        
+
         # Verify data is restored
         if verify_test_data():
-            print_color("✓✓✓ Test 1 PASSED: Backup and restore without passphrase works!", Colors.GREEN)
+            print_color(
+                "✓✓✓ Test 1 PASSED: Backup and restore without passphrase works!",
+                Colors.GREEN,
+            )
             return True
         else:
             print_color("✗✗✗ Test 1 FAILED: Data not restored correctly", Colors.RED)
             return False
-            
+
     except Exception as e:
         print_color(f"✗✗✗ Test 1 FAILED with exception: {e}", Colors.RED)
         return False
@@ -260,56 +290,56 @@ def test_without_passphrase() -> bool:
 
 def test_with_passphrase() -> bool:
     """Test backup and restore with passphrase."""
-    print_color("\n===== Test 2: Backup and Restore WITH Passphrase =====", Colors.YELLOW)
-    
+    print_color(
+        "\n===== Test 2: Backup and Restore WITH Passphrase =====", Colors.YELLOW
+    )
+
     try:
         # Stop previous test
-        run_command(docker_compose("down", "-v"))
-        
+        run_command(docker_compose("down", "--volumes", "--remove-orphans"))
+
         print("Starting services (with passphrase)...")
         env = os.environ.copy()
         env["PASSPHRASE"] = "test_passphrase_123"
-        
-        run_command(
-            docker_compose("up", "-d"),
-            env=env
-        )
-        
+
+        run_command(docker_compose("up", "-d"), env=env)
+
         # Wait for services
         if not wait_for_service("postgres"):
             return False
         if not wait_for_service("minio"):
             return False
-        if not wait_for_service("backup"):
-            return False
-        
+
         # Run test sequence
         create_s3_bucket()
         create_test_data()
-        
+
         if not verify_test_data():
             return False
-        
+
         run_backup()
         drop_test_data()
-        
+
         print("Verifying data was dropped...")
         if not verify_table_exists():
             print_color("✓ Data successfully dropped", Colors.GREEN)
         else:
             print_color("✗ Table still exists after drop", Colors.RED)
             return False
-        
+
         run_restore()
-        
+
         # Verify data is restored
         if verify_test_data():
-            print_color("✓✓✓ Test 2 PASSED: Backup and restore with passphrase works!", Colors.GREEN)
+            print_color(
+                "✓✓✓ Test 2 PASSED: Backup and restore with passphrase works!",
+                Colors.GREEN,
+            )
             return True
         else:
             print_color("✗✗✗ Test 2 FAILED: Data not restored correctly", Colors.RED)
             return False
-            
+
     except Exception as e:
         print_color(f"✗✗✗ Test 2 FAILED with exception: {e}", Colors.RED)
         return False
@@ -318,81 +348,77 @@ def test_with_passphrase() -> bool:
 def test_backup_hooks() -> bool:
     """Test backup with hooks."""
     print_color("\n===== Test 3: Backup with Hooks =====", Colors.YELLOW)
-    
+
     try:
-        # Create marker files in the backup container
-        setup_script = '''
-# Pre-command creates a file
-echo "echo 'PRE_BACKUP' > /tmp/pre_marker" > /tmp/pre_cmd.sh
-# Success command creates a file
-echo "echo 'BACKUP_SUCCESS' > /tmp/success_marker" > /tmp/success_cmd.sh
-# Make them executable
-chmod +x /tmp/pre_cmd.sh /tmp/success_cmd.sh
-'''
-        
-        run_command(
-            docker_compose("exec", "-T", "backup", "sh", "-c", setup_script),
-            capture_output=False
-        )
-        
         # Set environment variables for hooks
         env = os.environ.copy()
-        env["BACKUP_PRE_COMMAND"] = "/tmp/pre_cmd.sh"
-        env["BACKUP_POST_SUCCESS_COMMAND"] = "/tmp/success_cmd.sh"
-        env["BACKUP_POST_FAILURE_COMMAND"] = "echo 'BACKUP_FAILED' > /tmp/failure_marker"
-        
+        env["BACKUP_PRE_COMMAND"] = "echo 'PRE_BACKUP' > /tmp/pre_marker"
+        env["BACKUP_POST_SUCCESS_COMMAND"] = (
+            "echo 'BACKUP_SUCCESS' > /tmp/success_marker"
+        )
+        env["BACKUP_POST_FAILURE_COMMAND"] = (
+            "echo 'BACKUP_FAILED' > /tmp/failure_marker"
+        )
+
         # Run backup with hooks
         print("Running backup with hooks...")
         result = run_command(
             docker_compose("run", "-T", "backup", "sh", "backup.sh"),
             capture_output=True,
-            env=env
+            env=env,
         )
-        
+
         print("Backup output:")
         print(result.stdout)
-        
+
         # Verify hooks were executed
         print("Verifying hooks were executed...")
-        
+
         # Check pre-command marker
         pre_result = run_command(
             docker_compose("exec", "-T", "backup", "cat", "/tmp/pre_marker"),
             capture_output=True,
-            check=False
+            check=False,
         )
-        
-        # Check success-command marker  
+
+        # Check success-command marker
         success_result = run_command(
             docker_compose("exec", "-T", "backup", "cat", "/tmp/success_marker"),
             capture_output=True,
-            check=False
+            check=False,
         )
-        
+
         # Check failure-command marker (should not exist)
         failure_result = run_command(
             docker_compose("exec", "-T", "backup", "cat", "/tmp/failure_marker"),
             capture_output=True,
-            check=False
+            check=False,
         )
-        
+
         pre_executed = pre_result.returncode == 0 and "PRE_BACKUP" in pre_result.stdout
-        success_executed = success_result.returncode == 0 and "BACKUP_SUCCESS" in success_result.stdout
+        success_executed = (
+            success_result.returncode == 0 and "BACKUP_SUCCESS" in success_result.stdout
+        )
         failure_not_executed = failure_result.returncode != 0
-        
+
         if pre_executed and success_executed and failure_not_executed:
-            print_color("✓✓✓ Test 3 PASSED: Backup hooks executed correctly", Colors.GREEN)
+            print_color(
+                "✓✓✓ Test 3 PASSED: Backup hooks executed correctly", Colors.GREEN
+            )
             return True
         else:
-            print_color("✗✗✗ Test 3 FAILED: Hooks did not execute as expected", Colors.RED)
+            print_color(
+                "✗✗✗ Test 3 FAILED: Hooks did not execute as expected", Colors.RED
+            )
             print(f"  Pre-command executed: {pre_executed}")
             print(f"  Success command executed: {success_executed}")
             print(f"  Failure command not executed: {failure_not_executed}")
             return False
-            
+
     except Exception as e:
         print_color(f"✗✗✗ Test 3 FAILED with exception: {e}", Colors.RED)
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -400,66 +426,82 @@ chmod +x /tmp/pre_cmd.sh /tmp/success_cmd.sh
 def test_restore_hooks() -> bool:
     """Test restore with hooks."""
     print_color("\n===== Test 4: Restore with Hooks =====", Colors.YELLOW)
-    
+
     try:
         # Set environment variables for hooks
         env = os.environ.copy()
         env["RESTORE_PRE_COMMAND"] = "echo 'PRE_RESTORE' > /tmp/restore_pre_marker"
-        env["RESTORE_POST_SUCCESS_COMMAND"] = "echo 'RESTORE_SUCCESS' > /tmp/restore_success_marker"
-        env["RESTORE_POST_FAILURE_COMMAND"] = "echo 'RESTORE_FAILED' > /tmp/restore_failure_marker"
-        
+        env["RESTORE_POST_SUCCESS_COMMAND"] = (
+            "echo 'RESTORE_SUCCESS' > /tmp/restore_success_marker"
+        )
+        env["RESTORE_POST_FAILURE_COMMAND"] = (
+            "echo 'RESTORE_FAILED' > /tmp/restore_failure_marker"
+        )
+
         # Run restore with hooks
         print("Running restore with hooks...")
         result = run_command(
             docker_compose("run", "-T", "backup", "sh", "restore.sh"),
             capture_output=True,
-            env=env
+            env=env,
         )
-        
+
         print("Restore output:")
         print(result.stdout)
-        
+
         # Verify hooks were executed
         print("Verifying hooks were executed...")
-        
+
         # Check pre-command marker
         pre_result = run_command(
             docker_compose("exec", "-T", "backup", "cat", "/tmp/restore_pre_marker"),
             capture_output=True,
-            check=False
+            check=False,
         )
-        
+
         # Check success-command marker
         success_result = run_command(
-            docker_compose("exec", "-T", "backup", "cat", "/tmp/restore_success_marker"),
+            docker_compose(
+                "exec", "-T", "backup", "cat", "/tmp/restore_success_marker"
+            ),
             capture_output=True,
-            check=False
+            check=False,
         )
-        
+
         # Check failure-command marker (should not exist)
         failure_result = run_command(
-            docker_compose("exec", "-T", "backup", "cat", "/tmp/restore_failure_marker"),
+            docker_compose(
+                "exec", "-T", "backup", "cat", "/tmp/restore_failure_marker"
+            ),
             capture_output=True,
-            check=False
+            check=False,
         )
-        
+
         pre_executed = pre_result.returncode == 0 and "PRE_RESTORE" in pre_result.stdout
-        success_executed = success_result.returncode == 0 and "RESTORE_SUCCESS" in success_result.stdout
+        success_executed = (
+            success_result.returncode == 0
+            and "RESTORE_SUCCESS" in success_result.stdout
+        )
         failure_not_executed = failure_result.returncode != 0
-        
+
         if pre_executed and success_executed and failure_not_executed:
-            print_color("✓✓✓ Test 4 PASSED: Restore hooks executed correctly", Colors.GREEN)
+            print_color(
+                "✓✓✓ Test 4 PASSED: Restore hooks executed correctly", Colors.GREEN
+            )
             return True
         else:
-            print_color("✗✗✗ Test 4 FAILED: Hooks did not execute as expected", Colors.RED)
+            print_color(
+                "✗✗✗ Test 4 FAILED: Hooks did not execute as expected", Colors.RED
+            )
             print(f"  Pre-command executed: {pre_executed}")
             print(f"  Success command executed: {success_executed}")
             print(f"  Failure command not executed: {failure_not_executed}")
             return False
-            
+
     except Exception as e:
         print_color(f"✗✗✗ Test 4 FAILED with exception: {e}", Colors.RED)
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -469,54 +511,54 @@ def main() -> int:
     # Change to tests directory
     script_dir = os.path.dirname(os.path.abspath(__file__))
     os.chdir(script_dir)
-    
+
     print_color("===== Starting PostgreSQL Backup/Restore Tests =====", Colors.YELLOW)
-    
+
     test1_passed = False
     test2_passed = False
     test3_passed = False
     test4_passed = False
-    
+
     try:
         try:
             # Run tests
             test1_passed = test_without_passphrase()
             test2_passed = test_with_passphrase()
-            
+
             # Run hook tests if basic tests pass
             if test1_passed or test2_passed:
                 test3_passed = test_backup_hooks()
-                
+
                 # Drop and restore data for restore hooks test
                 drop_test_data()
                 test4_passed = test_restore_hooks()
         finally:
             # Always cleanup, even if tests fail
             cleanup()
-        
+
         # Print summary
         print_color("\n===== Test Summary =====", Colors.YELLOW)
-        
+
         if test1_passed:
             print_color("✓ Test 1 (without passphrase): PASSED", Colors.GREEN)
         else:
             print_color("✗ Test 1 (without passphrase): FAILED", Colors.RED)
-        
+
         if test2_passed:
             print_color("✓ Test 2 (with passphrase): PASSED", Colors.GREEN)
         else:
             print_color("✗ Test 2 (with passphrase): FAILED", Colors.RED)
-        
+
         if test3_passed:
             print_color("✓ Test 3 (backup hooks): PASSED", Colors.GREEN)
         else:
             print_color("✗ Test 3 (backup hooks): FAILED", Colors.RED)
-        
+
         if test4_passed:
             print_color("✓ Test 4 (restore hooks): PASSED", Colors.GREEN)
         else:
             print_color("✗ Test 4 (restore hooks): FAILED", Colors.RED)
-        
+
         # Exit with appropriate code
         if test1_passed and test2_passed and test3_passed and test4_passed:
             print_color("\nAll tests passed!", Colors.GREEN)
@@ -524,13 +566,14 @@ def main() -> int:
         else:
             print_color("\nSome tests failed!", Colors.RED)
             return 1
-            
+
     except KeyboardInterrupt:
         print_color("\nTests interrupted by user", Colors.YELLOW)
         return 130
     except Exception as e:
         print_color(f"\nUnexpected error: {e}", Colors.RED)
         import traceback
+
         traceback.print_exc()
         return 1
 

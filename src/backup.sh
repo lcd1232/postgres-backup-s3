@@ -28,9 +28,9 @@ run_backup() {
   echo "Database size: $db_size bytes"
   if [ "$db_size" -gt "$EXPECTED_SIZE_THRESHOLD_BYTES" ]; then
       echo "Database size exceeds expected size threshold, using --expected-size parameter."
-      aws_s3_args ="--expected-size $db_size"
+      aws_s3_args="--expected-size $db_size"
   else
-      aws_s3_args =""
+      aws_s3_args=""
   fi
 
   timestamp=$(date +"%Y-%m-%dT%H:%M:%S")
@@ -95,4 +95,5 @@ else
     if ! eval "$BACKUP_POST_FAILURE_COMMAND"; then
       echo "Warning: Post-failure command failed with exit code $?"
     fi
+  fi
 fi
