@@ -36,7 +36,7 @@ jobs:
           TAGS="${TAGS},${REPO}:${POSTGRES_VERSION}-latest"
           
           # Check if we're building from a version tag
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+          if [[ "${GITHUB_REF}" == "refs/tags/v"* ]]; then
             # Extract version from tag (e.g., v1.2.3 -> 1.2.3)
             VERSION=${GITHUB_REF#refs/tags/v}
             
