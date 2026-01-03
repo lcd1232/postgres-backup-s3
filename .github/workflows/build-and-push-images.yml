@@ -3,6 +3,8 @@ name: build and push images
 on:
   push:
     branches: ['master']
+    tags:
+      - 'v*.*.*'
 
 jobs:
   build-and-push-image:
@@ -23,6 +25,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      - name: Generate Docker tags
+        id: docker-tags
+        run: |
+          POSTGRES_VERSION="${{ matrix.postgres }}"
+          REPO="${{ github.repository }}"
+          
+          # Start with base tags
+          TAGS="${REPO}:${POSTGRES_VERSION}"
+          TAGS="${TAGS},${REPO}:${POSTGRES_VERSION}-latest"
+          
+          # Check if we're building from a version tag
+          if [[ "${GITHUB_REF}" == "refs/tags/v"* ]]; then
+            # Extract version from tag (e.g., v1.2.3 -> 1.2.3)
+            VERSION=${GITHUB_REF#refs/tags/v}
+            
+            # Extract major version (e.g., 1.2.3 -> 1)
+            MAJOR_VERSION=${VERSION%%.*}
+            
+            # Add versioned tags
+            TAGS="${TAGS},${REPO}:${POSTGRES_VERSION}-${MAJOR_VERSION}"
+            TAGS="${TAGS},${REPO}:${POSTGRES_VERSION}-${VERSION}"
+          fi
+          
+          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
+          echo "Generated tags: ${TAGS}"
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
 
@@ -40,7 +68,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ github.repository }}:${{ matrix.postgres }}
+          tags: ${{ steps.docker-tags.outputs.tags }}
           build-args: |
             POSTGRES_VERSION=${{ matrix.postgres }}
           platforms: |
