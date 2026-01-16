@@ -11,6 +11,8 @@ RUN apk add --update-cache --no-cache \
     aws-cli \
     # for pretty progress bar
     pv \
+    # for uuidgen utility
+    util-linux \
     curl && \
     curl -L https://github.com/ivoronin/go-cron/releases/download/v0.0.5/go-cron_0.0.5_linux_${TARGETARCH}.tar.gz -O && \
     tar xvf go-cron_0.0.5_linux_${TARGETARCH}.tar.gz && \
