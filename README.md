@@ -36,7 +36,12 @@ services:
       - /mnt/path/to/backup/folder:/backup # optional
 ```
 
-- Images are tagged by the major PostgreSQL version supported: `12`, `13`, `14`, `15` or `16`.
+- Images are tagged by the major PostgreSQL version supported: `12`, `13`, `14`, `15`, `16`, `17`, or `18`.
+- **Image versioning**: Multiple tag formats are available:
+  - `16` - PostgreSQL 16, latest build
+  - `16-latest` - Same as above (explicit latest)
+  - `16-1` - PostgreSQL 16, latest v1.x.x release
+  - `16-1.0.0` - PostgreSQL 16, specific version 1.0.0
 - The `SCHEDULE` variable determines backup frequency. See go-cron schedules documentation [here](http://godoc.org/github.com/robfig/cron#hdr-Predefined_schedules). Omit to run the backup immediately and then exit.
 - If `PASSPHRASE` is provided, the backup will be encrypted using GPG.
 - Run `docker exec <container name> sh backup.sh` to trigger a backup ad-hoc.
